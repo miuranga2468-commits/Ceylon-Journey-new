@@ -1,0 +1,163 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ceylon Journey</title>
+
+<link rel="stylesheet"
+href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+ margin: 0;
+ font-family: Arial, sans-serif;
+ background: #f4f8f7;
+}
+
+header {
+ background: #087f5b;
+ color: white;
+ padding: 18px;
+ text-align: center;
+}
+
+header h2 { margin: 0; }
+
+#map {
+ height: calc(100vh - 155px);
+ width: 100%;
+}
+
+.controls {
+ padding: 12px;
+ display: flex;
+ gap: 10px;
+ background: white;
+}
+
+button {
+ flex: 1;
+ border: none;
+ padding: 14px;
+ border-radius: 10px;
+ background: #087f5b;
+ color: white;
+ font-size: 15px;
+ font-weight: bold;
+}
+
+#status {
+ text-align: center;
+ padding: 8px;
+ background: white;
+ color: #087f5b;
+ font-size: 13px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<h2>🌴 Ceylon Journey</h2>
+<p>Explore Beautiful Sri Lanka</p>
+</header>
+
+<div id="map"></div>
+
+<div id="status">Welcome to Ceylon Journey</div>
+
+<div class="controls">
+<button onclick="findLocation()">📍 My Location</button>
+<button onclick="stopTracking()">Stop</button>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+const map = L.map('map').setView([7.8731, 80.7718], 8);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+ maxZoom: 19,
+ attribution: '© OpenStreetMap'
+}).addTo(map);
+
+let marker = null;
+let accuracyCircle = null;
+let watchId = null;
+
+function findLocation() {
+ if (!navigator.geolocation) {
+  document.getElementById('status').innerText =
+  'Location is not supported by this device.';
+  return;
+ }
+
+ document.getElementById('status').innerText =
+ 'Getting your live location...';
+
+ if (watchId !== null) {
+  navigator.geolocation.clearWatch(watchId);
+ }
+
+ watchId = navigator.geolocation.watchPosition(
+  function(position) {
+   const lat = position.coords.latitude;
+   const lng = position.coords.longitude;
+   const accuracy = position.coords.accuracy;
+
+   const current = [lat, lng];
+
+   if (!marker) {
+    marker = L.marker(current).addTo(map);
+    marker.bindPopup('📍 Your Live Location');
+   } else {
+    marker.setLatLng(current);
+   }
+
+   if (!accuracyCircle) {
+    accuracyCircle = L.circle(current, {
+     radius: accuracy,
+     color: '#087f5b'
+    }).addTo(map);
+   } else {
+    accuracyCircle.setLatLng(current);
+    accuracyCircle.setRadius(accuracy);
+   }
+
+   map.setView(current, 16);
+
+   document.getElementById('status').innerText =
+   'Live Location Active | Accuracy: ' +
+   Math.round(accuracy) + ' meters';
+  },
+
+  function(error) {
+   document.getElementById('status').innerText =
+   'Location error: ' + error.message;
+  },
+
+  {
+   enableHighAccuracy: true,
+   maximumAge: 3000,
+   timeout: 20000
+  }
+ );
+}
+
+function stopTracking() {
+ if (watchId !== null) {
+  navigator.geolocation.clearWatch(watchId);
+  watchId = null;
+ }
+ document.getElementById('status').innerText =
+ 'Live location tracking stopped.';
+}
+</script>
+
+</body>
+</html>
