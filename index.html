@@ -13,54 +13,85 @@ href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
 * { box-sizing: border-box; }
 
 body {
- margin: 0;
- font-family: Arial, sans-serif;
- background: #f4f8f7;
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f4f8f7;
 }
 
 header {
- background: #087f5b;
- color: white;
- padding: 15px;
- text-align: center;
+  background: #087f5b;
+  color: white;
+  padding: 12px;
+  text-align: center;
 }
 
 header h2, header p { margin: 5px; }
 
 #map {
- height: 65vh;
- min-height: 400px;
- width: 100%;
- background: #ddd;
+  height: 65vh;
+  min-height: 400px;
+  width: 100%;
+  background: #ddd;
 }
 
 .controls {
- padding: 12px;
- display: flex;
- flex-wrap: wrap;
- gap: 10px;
- background: white;
+  padding: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: white;
+}
+
+button, select, input {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 14px;
 }
 
 button {
- flex: 1;
- min-width: 110px;
- border: none;
- padding: 14px;
- border-radius: 10px;
- background: #087f5b;
- color: white;
- font-size: 14px;
- font-weight: bold;
+  background: #087f5b;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
 }
 
 button:active { background: #055c42; }
 
+.controls button {
+  flex: 1;
+  min-width: 110px;
+}
+
+.search-area {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  background: white;
+}
+
+.search-area input {
+  flex: 1;
+  min-width: 0;
+}
+
 #status {
- text-align: center;
- padding: 10px;
- background: white;
- color: #087f5b;
+  text-align: center;
+  padding: 10px;
+  background: white;
+  color: #087f5b;
+  font-size: 14px;
+}
+
+#destinationInfo {
+  padding: 10px;
+  background: #e8f5ef;
+  color: #075c43;
+  text-align: center;
+}
+
+.leaflet-popup-content {
+  font-size: 14px;
 }
 </style>
 </head>
@@ -68,132 +99,401 @@ button:active { background: #055c42; }
 <body>
 
 <header>
-<h2>🌴 Ceylon Journey</h2>
-<p>Explore Beautiful Sri Lanka</p>
+  <h2>🌴 Ceylon Journey</h2>
+  <p>Explore Beautiful Sri Lanka</p>
 </header>
+
+<div class="search-area">
+  <input id="searchInput" type="text"
+    placeholder="Search tourist places...">
+  <button onclick="searchPlace()">Search</button>
+</div>
+
+<div class="controls">
+  <button onclick="showRoadMap()">🗺️ Road Map</button>
+  <button onclick="showSatellite()">🛰️ Satellite</button>
+  <button onclick="findLocation()">📍 My Location</button>
+  <button onclick="toggleFollow()" id="followButton">🎯 Follow: ON</button>
+  <button onclick="stopTracking()">⏹ Stop</button>
+</div>
+
+<div class="controls">
+  <select id="category" onchange="loadPlaces()">
+    <option value="tourism">All Tourist Places</option>
+    <option value="historic">Historical Places</option>
+    <option value="beach">Beaches</option>
+    <option value="waterfall">Waterfalls</option>
+    <option value="mountain">Mountains & Viewpoints</option>
+    <option value="park">National Parks</option>
+    <option value="religious">Religious Places</option>
+    <option value="museum">Museums</option>
+    <option value="garden">Gardens</option>
+    <option value="hotel">Hotels & Accommodation</option>
+    <option value="restaurant">Restaurants & Cafes</option>
+    <option value="camp">Camping Sites</option>
+    <option value="railway">Railway Attractions</option>
+    <option value="cave">Caves</option>
+  </select>
+  <button onclick="loadPlaces()">🔎 Find Places</button>
+</div>
 
 <div id="map"></div>
 
-<div id="status">Welcome to Ceylon Journey</div>
-
-<div class="controls">
-<button onclick="showRoadMap()">🗺️ Road Map</button>
-<button onclick="showSatellite()">🛰️ Satellite</button>
-<button onclick="findLocation()">📍 My Location</button>
-<button onclick="stopTracking()">⏹ Stop</button>
-</div>
+<div id="status">Welcome to Ceylon Journey 🇱🇰</div>
+<div id="destinationInfo">Select a tourist place to see its details and route.</div>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
 const map = L.map('map').setView([7.8731, 80.7718], 8);
 
-// Road Map
 const roadMap = L.tileLayer(
- 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
- {
-  maxZoom: 19,
-  attribution: '© OpenStreetMap'
- }
+  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap contributors'
+  }
 );
 
-// Satellite Map
 const satelliteMap = L.tileLayer(
- 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
- {
-  maxZoom: 19,
-  attribution: 'Tiles © Esri'
- }
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  {
+    maxZoom: 19,
+    attribution: 'Tiles © Esri'
+  }
 );
 
-// Default Map
 roadMap.addTo(map);
 
 function showRoadMap() {
- map.removeLayer(satelliteMap);
- roadMap.addTo(map);
- document.getElementById('status').innerText =
- 'Road Map Selected';
+  if (map.hasLayer(satelliteMap)) map.removeLayer(satelliteMap);
+  if (!map.hasLayer(roadMap)) roadMap.addTo(map);
+  setStatus('Road Map Selected');
 }
 
 function showSatellite() {
- map.removeLayer(roadMap);
- satelliteMap.addTo(map);
- document.getElementById('status').innerText =
- 'Satellite Map Selected';
+  if (map.hasLayer(roadMap)) map.removeLayer(roadMap);
+  if (!map.hasLayer(satelliteMap)) satelliteMap.addTo(map);
+  setStatus('Satellite Map Selected');
+}
+
+function setStatus(message) {
+  document.getElementById('status').innerText = message;
 }
 
 let marker = null;
 let accuracyCircle = null;
 let watchId = null;
+let followMe = true;
+let firstLocation = true;
+let placeLayer = L.layerGroup().addTo(map);
+let routeLayer = L.layerGroup().addTo(map);
+let currentPosition = null;
+let places = [];
 
 function findLocation() {
- if (!navigator.geolocation) {
-  document.getElementById('status').innerText =
-  'Location not supported.';
-  return;
- }
-
- document.getElementById('status').innerText =
- 'Getting your location...';
-
- if (watchId !== null) {
-  navigator.geolocation.clearWatch(watchId);
- }
-
- watchId = navigator.geolocation.watchPosition(
-  function(position) {
-   const lat = position.coords.latitude;
-   const lng = position.coords.longitude;
-   const accuracy = position.coords.accuracy;
-   const current = [lat, lng];
-
-   if (!marker) {
-    marker = L.marker(current).addTo(map);
-    marker.bindPopup('Your Live Location');
-   } else {
-    marker.setLatLng(current);
-   }
-
-   if (!accuracyCircle) {
-    accuracyCircle = L.circle(current, {
-     radius: accuracy,
-     color: '#087f5b'
-    }).addTo(map);
-   } else {
-    accuracyCircle.setLatLng(current);
-    accuracyCircle.setRadius(accuracy);
-   }
-
-   map.setView(current, 16);
-
-   document.getElementById('status').innerText =
-   'Live Location Active | Accuracy: ' +
-   Math.round(accuracy) + ' meters';
-  },
-
-  function(error) {
-   document.getElementById('status').innerText =
-   'Location error: ' + error.message;
-  },
-
-  {
-   enableHighAccuracy: true,
-   maximumAge: 3000,
-   timeout: 20000
+  if (!navigator.geolocation) {
+    setStatus('Location is not supported by this browser.');
+    return;
   }
- );
+
+  if (watchId !== null) {
+    navigator.geolocation.clearWatch(watchId);
+  }
+
+  firstLocation = true;
+  followMe = true;
+  document.getElementById('followButton').innerText = '🎯 Follow: ON';
+
+  setStatus('Getting your live location...');
+
+  watchId = navigator.geolocation.watchPosition(
+    function(position) {
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      const accuracy = position.coords.accuracy;
+      currentPosition = [lat, lng];
+
+      if (!marker) {
+        marker = L.marker(currentPosition).addTo(map)
+          .bindPopup('Your Live Location');
+      } else {
+        marker.setLatLng(currentPosition);
+      }
+
+      if (!accuracyCircle) {
+        accuracyCircle = L.circle(currentPosition, {
+          radius: accuracy,
+          color: '#087f5b',
+          fillOpacity: 0.1
+        }).addTo(map);
+      } else {
+        accuracyCircle.setLatLng(currentPosition);
+        accuracyCircle.setRadius(accuracy);
+      }
+
+      if (firstLocation) {
+        map.setView(currentPosition, 16);
+        firstLocation = false;
+      } else if (followMe) {
+        map.panTo(currentPosition);
+      }
+
+      setStatus(
+        'Live Location Active | Accuracy: ' +
+        Math.round(accuracy) + ' meters'
+      );
+    },
+
+    function(error) {
+      setStatus('Location error: ' + error.message);
+    },
+
+    {
+      enableHighAccuracy: true,
+      maximumAge: 3000,
+      timeout: 20000
+    }
+  );
+}
+
+function toggleFollow() {
+  followMe = !followMe;
+
+  document.getElementById('followButton').innerText =
+    followMe ? '🎯 Follow: ON' : '🎯 Follow: OFF';
+
+  if (followMe && currentPosition) {
+    map.panTo(currentPosition);
+  }
 }
 
 function stopTracking() {
- if (watchId !== null) {
-  navigator.geolocation.clearWatch(watchId);
-  watchId = null;
- }
+  if (watchId !== null) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
 
- document.getElementById('status').innerText =
- 'Location tracking stopped.';
+  followMe = false;
+  document.getElementById('followButton').innerText = '🎯 Follow: OFF';
+  setStatus('Location tracking stopped.');
 }
+
+/* Tourist place categories */
+const categoryQueries = {
+  tourism: `
+    nwr["tourism"~"attraction|museum|viewpoint|zoo|theme_park|artwork|gallery|camp_site|picnic_site"];
+    nwr["historic"];
+    nwr["natural"~"beach|waterfall|peak|cave"];
+    nwr["leisure"="nature_reserve"];
+    nwr["amenity"="place_of_worship"];
+  `,
+  historic: `nwr["historic"];`,
+  beach: `nwr["natural"="beach"]; nwr["leisure"="beach_resort"];`,
+  waterfall: `nwr["waterway"="waterfall"]; nwr["natural"="waterfall"];`,
+  mountain: `nwr["natural"~"peak|cliff"]; nwr["tourism"="viewpoint"];`,
+  park: `nwr["boundary"="national_park"]; nwr["leisure"="nature_reserve"];`,
+  religious: `nwr["amenity"="place_of_worship"];`,
+  museum: `nwr["tourism"="museum"];`,
+  garden: `nwr["leisure"="garden"]; nwr["leisure"="park"];`,
+  hotel: `nwr["tourism"~"hotel|guest_house|hostel|resort|chalet"];`,
+  restaurant: `nwr["amenity"~"restaurant|cafe|fast_food"];`,
+  camp: `nwr["tourism"="camp_site"];`,
+  railway: `nwr["railway"="station"]; nwr["railway"="halt"];`,
+  cave: `nwr["natural"="cave_entrance"];`
+};
+
+function getElementCenter(element) {
+  if (element.lat && element.lon) {
+    return [element.lat, element.lon];
+  }
+
+  if (element.center) {
+    return [element.center.lat, element.center.lon];
+  }
+
+  return null;
+}
+
+async function loadPlaces() {
+  const category = document.getElementById('category').value;
+  const bounds = map.getBounds();
+
+  const south = bounds.getSouth();
+  const west = bounds.getWest();
+  const north = bounds.getNorth();
+  const east = bounds.getEast();
+
+  if (map.getZoom() < 7) {
+    setStatus('Zoom in to find tourist places.');
+    return;
+  }
+
+  const query = `
+    [out:json][timeout:25];
+    (
+      ${categoryQueries[category]}
+    );
+    out center tags;
+  `;
+
+  setStatus('Searching tourist places...');
+
+  const endpoints = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter'
+  ];
+
+  let data = null;
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        body: 'data=' + encodeURIComponent(
+          query.replace('out center tags;', 
+            `(${south},${west},${north},${east});out center tags;`)
+        )
+      });
+
+      if (!response.ok) continue;
+
+      data = await response.json();
+      break;
+    } catch (error) {
+      console.log('Overpass endpoint failed:', error);
+    }
+  }
+
+  if (!data) {
+    setStatus('Could not load places. Please try again later.');
+    return;
+  }
+
+  placeLayer.clearLayers();
+  places = [];
+
+  data.elements.forEach(element => {
+    const point = getElementCenter(element);
+    if (!point) return;
+
+    const tags = element.tags || {};
+    const name = tags.name || tags['name:en'] || 'Unnamed place';
+
+    const item = {
+      name: name,
+      lat: point[0],
+      lng: point[1],
+      type: tags.tourism || tags.historic ||
+            tags.natural || tags.amenity || 'Tourist place'
+    };
+
+    places.push(item);
+
+    L.marker(point)
+      .bindPopup(
+        '<b>' + escapeHTML(item.name) + '</b><br>' +
+        escapeHTML(item.type) +
+        '<br><button onclick="startNavigation(' +
+        item.lat + ',' + item.lng + ')">Navigate Here</button>'
+      )
+      .addTo(placeLayer);
+  });
+
+  setStatus('Found ' + places.length + ' places in this map area.');
+}
+
+function escapeHTML(value) {
+  return String(value).replace(/[&<>"']/g, function(char) {
+    return {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[char];
+  });
+}
+
+function searchPlace() {
+  const search = document.getElementById('searchInput')
+    .value.trim().toLowerCase();
+
+  if (!search) {
+    setStatus('Please enter a place name.');
+    return;
+  }
+
+  const result = places.find(place =>
+    place.name.toLowerCase().includes(search)
+  );
+
+  if (result) {
+    map.setView([result.lat, result.lng], 16);
+    setStatus('Place found: ' + result.name);
+  } else {
+    setStatus('Place not found in loaded results. Try Find Places.');
+  }
+}
+
+/* Route using OSRM public demo service */
+async function startNavigation(lat, lng) {
+  if (!currentPosition) {
+    setStatus('Please activate My Location first.');
+    return;
+  }
+
+  routeLayer.clearLayers();
+  setStatus('Finding route...');
+
+  const start = currentPosition;
+  const url =
+    'https://router.project-osrm.org/route/v1/driving/' +
+    start[1] + ',' + start[0] + ';' +
+    lng + ',' + lat +
+    '?overview=full&geometries=geojson';
+
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (!data.routes || !data.routes.length) {
+      setStatus('Route not found.');
+      return;
+    }
+
+    const route = data.routes[0];
+    const distance = (route.distance / 1000).toFixed(1);
+    const duration = Math.round(route.duration / 60);
+
+    const line = L.geoJSON(route.geometry, {
+      style: {
+        color: '#087f5b',
+        weight: 6,
+        opacity: 0.8
+      }
+    }).addTo(routeLayer);
+
+    map.fitBounds(line.getBounds(), { padding: [30, 30] });
+
+    L.marker([lat, lng])
+      .bindPopup('Destination')
+      .addTo(routeLayer);
+
+    document.getElementById('destinationInfo').innerText =
+      'Distance: ' + distance + ' km | Estimated driving time: ' +
+      duration + ' minutes';
+
+    setStatus('Route displayed. Keep Live Location active.');
+  } catch (error) {
+    setStatus('Could not calculate route. Please try again.');
+  }
+}
+
+map.on('moveend', function() {
+  // Map movement does not automatically reset zoom or location.
+});
+
 </script>
 
 </body>
