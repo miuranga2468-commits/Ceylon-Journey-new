@@ -37,20 +37,24 @@ header h2, header p { margin: 5px; }
 .controls {
  padding: 12px;
  display: flex;
+ flex-wrap: wrap;
  gap: 10px;
  background: white;
 }
 
 button {
  flex: 1;
+ min-width: 110px;
  border: none;
  padding: 14px;
  border-radius: 10px;
  background: #087f5b;
  color: white;
- font-size: 15px;
+ font-size: 14px;
  font-weight: bold;
 }
+
+button:active { background: #055c42; }
 
 #status {
  text-align: center;
@@ -73,8 +77,10 @@ button {
 <div id="status">Welcome to Ceylon Journey</div>
 
 <div class="controls">
+<button onclick="showRoadMap()">🗺️ Road Map</button>
+<button onclick="showSatellite()">🛰️ Satellite</button>
 <button onclick="findLocation()">📍 My Location</button>
-<button onclick="stopTracking()">Stop</button>
+<button onclick="stopTracking()">⏹ Stop</button>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -82,10 +88,40 @@ button {
 <script>
 const map = L.map('map').setView([7.8731, 80.7718], 8);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
- maxZoom: 19,
- attribution: '© OpenStreetMap'
-}).addTo(map);
+// Road Map
+const roadMap = L.tileLayer(
+ 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+ {
+  maxZoom: 19,
+  attribution: '© OpenStreetMap'
+ }
+);
+
+// Satellite Map
+const satelliteMap = L.tileLayer(
+ 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+ {
+  maxZoom: 19,
+  attribution: 'Tiles © Esri'
+ }
+);
+
+// Default Map
+roadMap.addTo(map);
+
+function showRoadMap() {
+ map.removeLayer(satelliteMap);
+ roadMap.addTo(map);
+ document.getElementById('status').innerText =
+ 'Road Map Selected';
+}
+
+function showSatellite() {
+ map.removeLayer(roadMap);
+ satelliteMap.addTo(map);
+ document.getElementById('status').innerText =
+ 'Satellite Map Selected';
+}
 
 let marker = null;
 let accuracyCircle = null;
