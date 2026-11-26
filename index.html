@@ -319,20 +319,22 @@ async function loadPlaces() {
   const category = document.getElementById('category').value;
   const bounds = map.getBounds();
 
-  const south = bounds.getSouth();
-  const west = bounds.getWest();
-  const north = bounds.getNorth();
-  const east = bounds.getEast();
-
   if (map.getZoom() < 7) {
     setStatus('Zoom in to find tourist places.');
     return;
   }
 
+  const bbox = `(${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()})`;
+
+  const selectors = categoryQueries[category]
+    .split(';')
+    .map(item => item.trim())
+    .filter(item => item.length > 0);
+
   const query = `
-    [out:json][timeout:25];
+    [out:json][timeout:60];
     (
-      ${categoryQueries[category]}
+      ${selectors.map(item => item + bbox + ';').join('\n')}
     );
     out center tags;
   `;
@@ -350,10 +352,10 @@ async function loadPlaces() {
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
-        body: 'data=' + encodeURIComponent(
-          query.replace('out center tags;', 
-            `(${south},${west},${north},${east});out center tags;`)
-        )
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: 'data=' + encodeURIComponent(query)
       });
 
       if (!response.ok) continue;
@@ -361,12 +363,12 @@ async function loadPlaces() {
       data = await response.json();
       break;
     } catch (error) {
-      console.log('Overpass endpoint failed:', error);
+      console.log(error);
     }
   }
 
   if (!data) {
-    setStatus('Could not load places. Please try again later.');
+    setStatus('Server busy. Please try again later.');
     return;
   }
 
@@ -378,14 +380,16 @@ async function loadPlaces() {
     if (!point) return;
 
     const tags = element.tags || {};
-    const name = tags.name || tags['name:en'] || 'Unnamed place';
+    const name = tags.name || tags['name:en'];
+
+    if (!name) return;
 
     const item = {
       name: name,
       lat: point[0],
       lng: point[1],
       type: tags.tourism || tags.historic ||
-            tags.natural || tags.amenity || 'Tourist place'
+            tags.natural || tags.amenity || 'Tourist Place'
     };
 
     places.push(item);
@@ -395,13 +399,15 @@ async function loadPlaces() {
         '<b>' + escapeHTML(item.name) + '</b><br>' +
         escapeHTML(item.type) +
         '<br><button onclick="startNavigation(' +
-        item.lat + ',' + item.lng + ')">Navigate Here</button>'
+        item.lat + ',' + item.lng +
+        ')">Navigate Here</button>'
       )
       .addTo(placeLayer);
   });
 
-  setStatus('Found ' + places.length + ' places in this map area.');
-}
+  setStatus('Found ' + places.length + ' named places.');
+  }
+  
 
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, function(char) {
